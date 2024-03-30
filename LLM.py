@@ -56,7 +56,7 @@ response = chat.send_message(
     user_input,
     stream=stream)
 
-print(Markdown(response.text))
+print(response.text)
 
 response.prompt_feedback
 response.candidates
