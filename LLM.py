@@ -7,7 +7,7 @@ import pathlib
 import pprint
 import requests
 import mimetypes
-from IPython.display import Markdown
+
 
 #Апи ключ
 API_KEY=userdata.get('API_KEY')
@@ -41,7 +41,7 @@ response = chat.send_message(
     user_input,
     stream=stream)
 
-display(Markdown(response.text))
+print(Markdown(response.text))
 
 response.prompt_feedback
 response.candidates
