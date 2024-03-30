@@ -14,7 +14,7 @@ API_KEY=userdata.get('API_KEY')
 
 genai.configure(api_key=API_KEY)
 
-#Название языковой модели и конфигурация
+#Название языковой модели и конфигурации
 model = 'gemini-1.0-pro' # @param {isTemplate: true}
 contents_b64 = 'W10=' # @param {isTemplate: true}
 generation_config_b64 = 'eyJ0ZW1wZXJhdHVyZSI6MC45LCJ0b3BfcCI6MSwidG9wX2siOjEsIm1heF9vdXRwdXRfdG9rZW5zIjoyMDQ4LCJzdG9wX3NlcXVlbmNlcyI6W119' # @param {isTemplate: true}
@@ -27,7 +27,22 @@ safety_settings = json.loads(base64.b64decode(safety_settings_b64))
 user_input = base64.b64decode(user_input_b64).decode()
 stream = False
 
-contents = ''
+contents = []
+
+generation_config = {'temperature': 0.9,
+ 'top_p': 1,
+ 'top_k': 1,
+ 'max_output_tokens': 4096,
+ 'stop_sequences': []}
+
+safety_settings = [{'category': 'HARM_CATEGORY_HARASSMENT',
+  'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
+ {'category': 'HARM_CATEGORY_HATE_SPEECH',
+  'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
+ {'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+  'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
+ {'category': 'HARM_CATEGORY_DANGEROUS_CONTENT',
+  'threshold': 'BLOCK_MEDIUM_AND_ABOVE'}]
 
 #Ввод текста пользователем
 user_input = ''
