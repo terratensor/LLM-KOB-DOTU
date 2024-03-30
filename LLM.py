@@ -1,62 +1,86 @@
-from google.generativeai import generative_models
-from google.generativeai import types
-import google.generativeai as genai
-import json
+
+import tkinter as tk
+from tkinter import scrolledtext
 import base64
-import pathlib
-import pprint
-import requests
-import mimetypes
+import json
 
+import google.generativeai as genai
+# Апи ключ введите сюда свой ключ который получите вот тут https://aistudio.google.com/app/apikey
+API_KEY = 'API_KEY'
 
-#Апи ключ
-API_KEY=userdata.get('API_KEY')
+model = 'gemini-1.0-pro'
+
+# Инициализация
 
 genai.configure(api_key=API_KEY)
-
-#Название языковой модели и конфигурации
-model = 'gemini-1.0-pro' # @param {isTemplate: true}
-contents_b64 = 'W10=' # @param {isTemplate: true}
-generation_config_b64 = 'eyJ0ZW1wZXJhdHVyZSI6MC45LCJ0b3BfcCI6MSwidG9wX2siOjEsIm1heF9vdXRwdXRfdG9rZW5zIjoyMDQ4LCJzdG9wX3NlcXVlbmNlcyI6W119' # @param {isTemplate: true}
-safety_settings_b64 = 'W3siY2F0ZWdvcnkiOiJIQVJNX0NBVEVHT1JZX0hBUkFTU01FTlQiLCJ0aHJlc2hvbGQiOiJCTE9DS19NRURJVU1fQU5EX0FCT1ZFIn0seyJjYXRlZ29yeSI6IkhBUk1fQ0FURUdPUllfSEFURV9TUEVFQ0giLCJ0aHJlc2hvbGQiOiJCTE9DS19NRURJVU1fQU5EX0FCT1ZFIn0seyJjYXRlZ29yeSI6IkhBUk1fQ0FURUdPUllfU0VYVUFMTFlfRVhQTElDSVQiLCJ0aHJlc2hvbGQiOiJCTE9DS19NRURJVU1fQU5EX0FCT1ZFIn0seyJjYXRlZ29yeSI6IkhBUk1fQ0FURUdPUllfREFOR0VST1VTX0NPTlRFTlQiLCJ0aHJlc2hvbGQiOiJCTE9DS19NRURJVU1fQU5EX0FCT1ZFIn1d' # @param {isTemplate: true}
-user_input_b64 = '' # @param {isTemplate: true}
-
-contents = json.loads(base64.b64decode(contents_b64))
-generation_config = json.loads(base64.b64decode(generation_config_b64))
-safety_settings = json.loads(base64.b64decode(safety_settings_b64))
-user_input = base64.b64decode(user_input_b64).decode()
-stream = False
-
-contents = []
-
-generation_config = {'temperature': 0.9,
- 'top_p': 1,
- 'top_k': 1,
- 'max_output_tokens': 4096,
- 'stop_sequences': []}
-
-safety_settings = [{'category': 'HARM_CATEGORY_HARASSMENT',
-  'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
- {'category': 'HARM_CATEGORY_HATE_SPEECH',
-  'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
- {'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-  'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
- {'category': 'HARM_CATEGORY_DANGEROUS_CONTENT',
-  'threshold': 'BLOCK_MEDIUM_AND_ABOVE'}]
-
-#Ввод текста пользователем
-user_input = ''
-
-# Вызов апи и ответ модели
 gemini = genai.GenerativeModel(model_name=model)
+chat = gemini.start_chat()
 
-chat = gemini.start_chat(history=contents)
+# Функции 
 
-response = chat.send_message(
-    user_input,
-    stream=stream)
+def send_message():
+    user_input = entry_field.get()
+    entry_field.delete(0, tk.END)
 
-print(response.text)
+    # Добавить сообщение пользователя в чат
+    chat_box.configure(state='normal')
+    chat_box.insert(tk.END, "Вы: " + user_input + "\n")
+    chat_box.configure(state='disabled')
 
-response.prompt_feedback
-response.candidates
+    # Отправить сообщение модели и получить ответ
+    response = chat.send_message(user_input)
+
+    # Добавить ответ модели в чат
+    chat_box.configure(state='normal')
+    chat_box.insert(tk.END, "Модель: " + response.text + "\n")
+    chat_box.configure(state='disabled')
+
+    # Прокрутить чат вниз
+    chat_box.yview(tk.END)
+# Создание графического интерфейса (пока для удобства, можно будет под сайт переделать)
+
+window = tk.Tk()
+window.title("ДОТУ-КОБ-ЛЛМ")
+
+# Стили 
+
+font_style = ("Arial", 12)
+bg_color = "#f0f0f0"
+entry_bg = "#ffffff"
+
+# Виджеты 
+
+# Поле чата
+chat_box = scrolledtext.ScrolledText(window, wrap=tk.WORD, font=font_style, bg=bg_color)
+chat_box.pack(expand=True, fill='both', padx=10, pady=10)
+chat_box.configure(state='disabled')
+
+# Поле ввода
+entry_field = tk.Entry(window, font=font_style, bg=entry_bg)
+entry_field.pack(fill='x', padx=10, pady=5)
+entry_field.bind("<Return>", lambda event: send_message())
+
+# Кнопка отправки
+send_button = tk.Button(window, text="Отправить", command=send_message)
+send_button.pack(pady=5)
+
+# Дополнительный промпт 
+
+prompt_label = tk.Label(window, text="Вводный промпт:")
+prompt_label.pack()
+
+prompt_entry = tk.Entry(window, font=font_style, bg=entry_bg)
+prompt_entry.pack(fill='x', padx=10, pady=5)
+prompt_entry.insert(0, " ")  # Пример промпта
+
+def set_prompt():
+    prompt = prompt_entry.get()
+    chat.send_message(prompt)  # Отправить промпт модели
+    prompt_entry.delete(0, tk.END)  # Очистить поле промпта
+
+prompt_button = tk.Button(window, text="Установить промпт", command=set_prompt)
+prompt_button.pack(pady=5)
+
+# Запуск 
+
+window.mainloop()
