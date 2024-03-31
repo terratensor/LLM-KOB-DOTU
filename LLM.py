@@ -1,86 +1,120 @@
+import sys
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QTextEdit, QLineEdit, QPushButton,
+                             QVBoxLayout, QWidget, QAction, QFileDialog)
 
-import tkinter as tk
-from tkinter import scrolledtext
-import base64
-import json
+import google.generativeai as genai 
+from PyPDF2 import PdfReader  # Для чтения PDF
+import docx  # Для чтения DOCX
+import win32com.client  # Для DOC файлов
 
-import google.generativeai as genai
-# Апи ключ введите сюда свой ключ который получите вот тут https://aistudio.google.com/app/apikey
+# Апи ключ
 API_KEY = 'API_KEY'
 
 model = 'gemini-1.0-pro'
 
-# Инициализация
+#Инициализация 
 
 genai.configure(api_key=API_KEY)
 gemini = genai.GenerativeModel(model_name=model)
 chat = gemini.start_chat()
 
-# Функции 
 
-def send_message():
-    user_input = entry_field.get()
-    entry_field.delete(0, tk.END)
+class ChatWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
 
-    # Добавить сообщение пользователя в чат
-    chat_box.configure(state='normal')
-    chat_box.insert(tk.END, "Вы: " + user_input + "\n")
-    chat_box.configure(state='disabled')
+    def set_prompt(self):
+        prompt = self.prompt_field.text()
 
-    # Отправить сообщение модели и получить ответ
-    response = chat.send_message(user_input)
+        # Инструкция
+        instruction = f"Отныне ты {prompt}. Пожалуйста, отвечай на вопросы и веди себя в соответствии с этой ролью."
 
-    # Добавить ответ модели в чат
-    chat_box.configure(state='normal')
-    chat_box.insert(tk.END, "Модель: " + response.text + "\n")
-    chat_box.configure(state='disabled')
+        chat.send_message(instruction)  # Отправка инструкции модели
+        self.prompt_field.clear()  
 
-    # Прокрутить чат вниз
-    chat_box.yview(tk.END)
-# Создание графического интерфейса (пока для удобства, можно будет под сайт переделать)
+    def initUI(self):
+        self.chat_display = QTextEdit(self)
+        self.chat_display.setReadOnly(True)
 
-window = tk.Tk()
-window.title("ДОТУ-КОБ-ЛЛМ")
+        self.input_field = QLineEdit(self)
 
-# Стили 
+        send_button = QPushButton('Отправить', self)
+        send_button.clicked.connect(self.send_message)
 
-font_style = ("Arial", 12)
-bg_color = "#f0f0f0"
-entry_bg = "#ffffff"
+        load_button = QPushButton('Загрузить файл', self)
+        load_button.clicked.connect(self.load_file)
 
-# Виджеты 
+        self.prompt_field = QLineEdit(self)
+        prompt_button = QPushButton('Инструкция ИИ', self)
+        prompt_button.clicked.connect(self.set_prompt)
 
-# Поле чата
-chat_box = scrolledtext.ScrolledText(window, wrap=tk.WORD, font=font_style, bg=bg_color)
-chat_box.pack(expand=True, fill='both', padx=10, pady=10)
-chat_box.configure(state='disabled')
+        layout = QVBoxLayout()
+        layout.addWidget(self.chat_display)
+        layout.addWidget(self.input_field)
+        layout.addWidget(send_button)
+        layout.addWidget(load_button)
+        layout.addWidget(self.prompt_field)  # Add prompt field
+        layout.addWidget(prompt_button)  # Add prompt button
 
-# Поле ввода
-entry_field = tk.Entry(window, font=font_style, bg=entry_bg)
-entry_field.pack(fill='x', padx=10, pady=5)
-entry_field.bind("<Return>", lambda event: send_message())
+        central_widget = QWidget()
+        central_widget.setLayout(layout)
+        self.setCentralWidget(central_widget)
 
-# Кнопка отправки
-send_button = tk.Button(window, text="Отправить", command=send_message)
-send_button.pack(pady=5)
+        self.setGeometry(300, 300, 600, 400)
+        self.setWindowTitle('Чат')
+        self.show()
 
-# Дополнительный промпт 
+    def send_message(self):
+        user_input = self.input_field.text()
+        self.chat_display.append("Вы: " + user_input + "\n")
+        self.input_field.clear()
 
-prompt_label = tk.Label(window, text="Вводный промпт:")
-prompt_label.pack()
+        # Отправка и получение ответа
+        response = chat.send_message(user_input)
 
-prompt_entry = tk.Entry(window, font=font_style, bg=entry_bg)
-prompt_entry.pack(fill='x', padx=10, pady=5)
-prompt_entry.insert(0, " ")  # Пример промпта
+        # Ответ модели в чате
+        self.chat_display.append("Модель: " + response.text + "\n")
 
-def set_prompt():
-    prompt = prompt_entry.get()
-    chat.send_message(prompt)  # Отправить промпт модели
-    prompt_entry.delete(0, tk.END)  # Очистить поле промпта
+    def load_file(self):
+        options = QFileDialog.Options()
+        file_path, _ = QFileDialog.getOpenFileName(self, "Загрузить файл", "",
+                                                   "All Files (*);;PDF Files (*.pdf);;Text Files (*.txt);;Docx Files (*.docx)",
+                                                   options=options)
+        if file_path:
+            try:
+                if file_path.endswith(".pdf"):
+                    with open(file_path, 'rb') as f:
+                        reader = PdfReader(f)
+                        text = ""
+                        for page in reader.pages:
+                            text += page.extract_text()
 
-prompt_button = tk.Button(window, text="Установить промпт", command=set_prompt)
-prompt_button.pack(pady=5)
+                elif file_path.endswith(".docx"):
+                    doc = docx.Document(file_path)
+                    text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
 
-# Запуск 
+                elif file_path.endswith(".doc"):
+                    word = win32com.client.Dispatch("Word.Application")
+                    doc = word.Documents.Open(file_path)
+                    text = doc.Content.Text
+                    doc.Close()
+                    word.Quit()
+                else:
+                    raise ValueError("Неподдерживаемый тип")
 
-window.mainloop()
+                chat.send_message(f"Загружено из файла: {file_path}")
+                chat.send_message(text)  # Send text to the model
+
+            except Exception as e:
+                self.chat_display.append(f"Ошибка загрузки файла: {e}\n")
+
+
+def main():
+    app = QApplication(sys.argv)
+    ex = ChatWindow()
+    sys.exit(app.exec_())
+
+
+if __name__ == '__main__':
+    main()
